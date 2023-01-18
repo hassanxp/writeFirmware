@@ -9,12 +9,13 @@ from response import Response
 from cli import CommandLineInterface
 import numpy as np
 import threading
+import yaml
 
 logger = logging.getLogger('Coordinator')
 
 
-class ResponseTimeOutError(Exception):
-    """Exception raised when a response to a sent command has timed out.
+class MessagableException(Exception):
+    """Write a message with the exception
 
     Attributes:
         message -- explanation of the error
@@ -24,26 +25,30 @@ class ResponseTimeOutError(Exception):
         super().__init__(self.message)
 
 
-class CommandFailError(Exception):
-    """Exception raised when a sent command has failed.
+class ResponseTimeOutError(MessagableException):
+    pass
 
-    Attributes:
-        message -- explanation of the error
-    """
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+
+class CommandFailError(MessagableException):
+    pass
+
+
+class InvalidDataException(MessagableException):
+    pass
 
 
 class Coordinator:
 
-    def __init__(self, timeout: int = 1, nsteps: int = 1):
+    def __init__(self, config, timeout: int = 1, nsteps: int = 1):
         self.timeout = timeout
         self.interval = timeout // nsteps
         self.result_available = threading.Event()
+        self.config = config
 
-    def getPathForId(self, id: int) -> str:
-        return 'some-path-to-firmware'
+    def getInfoForId(self, id: int) -> str:
+        if id not in self.config:
+            raise InvalidDataException()
+        return self.config[id]["file"]
 
     def handleCommand(self, command, controlBoard):
         controlBoard.send(command)
@@ -88,8 +93,8 @@ class Coordinator:
         dataMap = dict()
 
         for id in ids:
-            path = self.getPathForId(id)
-            packets = packetizer.getPackets(path)
+            path, startAddress = self.getInfoForId(directory, id)
+            packets = packetizer.getPackets(path, startAddress)
             dataMap[id] = packets
 
         controlBoard = ControlBoard()  # connect to serial bus
@@ -105,8 +110,11 @@ def main() -> None:
     logging.basicConfig(level=args.loglevel.upper())
     logging.info('Logging now setup.')
 
+    with open(args.config, 'r') as f:
+        data = yaml.safe_load(f)
+
     coordinator = Coordinator()
-    coordinator.process(args.directory, args.ids)
+    coordinator.process(args.directory, args.ids, data)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,6 @@
+0xa0:
+  address: 0x24fc
+  file: abc/xyz-0xa0.bin
+0xb1:
+  address: 0x12fc
+  file: abc/xyz-0xb1.bin
