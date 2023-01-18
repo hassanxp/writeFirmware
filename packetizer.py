@@ -23,4 +23,5 @@ class Packetizer:
             packet = Packet(address=address, data=data)
 
     def getContents(self, path: str) -> bytearray:
-        return bytearray([1, 2, 3])
+        # Write dummy value for now
+        return bytearray(range(2000))

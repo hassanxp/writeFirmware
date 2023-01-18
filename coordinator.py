@@ -1,4 +1,3 @@
-import argparse
 import logging
 
 from typing import List
@@ -7,6 +6,7 @@ from packet import Packet
 from command import Command
 from controlboard import ControlBoard
 from response import Response
+from cli import CommandLineInterface
 import numpy as np
 import threading
 
@@ -45,24 +45,6 @@ class Coordinator:
     def getPathForId(self, id: int) -> str:
         return 'some-path-to-firmware'
 
-    def process(self, directory: str, ids: List[int]) -> None:
-
-        packetizer = Packetizer()
-
-        # Compute packets for _all_ controllers before connecting to hardware just
-        # in case of errors
-        dataMap = dict()
-
-        for id in ids:
-            path = self.getPathForId(id)
-            packets = packetizer.getPackets(path)
-            dataMap[id] = packets
-
-        controlBoard = ControlBoard()  # connect to serial bus
-        for id, packets in dataMap.items():
-            logger.info(f"Writing firmware for controller {id}.. ")
-            self.writePackets(controlBoard, id, packets)
-
     def handleCommand(self, command, controlBoard):
         controlBoard.send(command)
         thread = threading.Thread(target=controlBoard.recv())
@@ -97,21 +79,28 @@ class Coordinator:
         command.setBoardId(id)
         self.handleCommand(command, controlBoard)
 
+    def process(self, directory: str, ids: List[int]) -> None:
+
+        packetizer = Packetizer()
+
+        # Compute packets for _all_ controllers before connecting to hardware just
+        # in case of errors
+        dataMap = dict()
+
+        for id in ids:
+            path = self.getPathForId(id)
+            packets = packetizer.getPackets(path)
+            dataMap[id] = packets
+
+        controlBoard = ControlBoard()  # connect to serial bus
+        for id, packets in dataMap.items():
+            logger.info(f"Writing firmware for controller {id}.. ")
+            self.writePackets(controlBoard, id, packets)
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog='Coordinator',
-                                     description='Writes firmware updates')
 
-    parser.add_argument('directory', help='location of firmware update.')
-    parser.add_argument('ids', metavar='id', type=int, nargs='+',
-                        help='list of controller board identifiers')
-    parser.add_argument('-log',
-                        '--loglevel',
-                        default='INFO',
-                        choices=logging._nameToLevel.keys(),
-                        help='Provide logging level. Example --loglevel debug, default=info')
-
-    args = parser.parse_args()
+    args = CommandLineInterface().getArgs()
 
     logging.basicConfig(level=args.loglevel.upper())
     logging.info('Logging now setup.')
