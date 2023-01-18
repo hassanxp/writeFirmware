@@ -1,6 +1,7 @@
 import logging
 
 from typing import List
+from typing import Tuple
 from packetizer import Packetizer
 from packet import Packet
 from command import Command
@@ -8,7 +9,7 @@ from controlboard import ControlBoard
 from response import Response
 from cli import CommandLineInterface
 import numpy as np
-import threading
+import time
 import yaml
 
 logger = logging.getLogger('Coordinator')
@@ -42,27 +43,29 @@ class Coordinator:
     def __init__(self, config, timeout: int = 1, nsteps: int = 1):
         self.timeout = timeout
         self.interval = timeout // nsteps
-        self.result_available = threading.Event()
         self.config = config
 
-    def getInfoForId(self, id: int) -> str:
+    def getInfoForId(self, id: np.ushort) -> Tuple[np.ushort, str]:
         if id not in self.config:
-            raise InvalidDataException()
-        return self.config[id]["file"]
+            raise InvalidDataException(f"Controller ID {id} is not in provided config")
+
+        info = self.config[id]
+        return (info["address"], info["file"])
 
     def handleCommand(self, command, controlBoard):
+        logger.debug(f'Sending command {command.name} ..')
+        elapsedTime = 0
         controlBoard.send(command)
-        thread = threading.Thread(target=controlBoard.recv())
-        thread.start()
-        while not self.result_available.wait(timeout=self.timeout):
+        while not elapsedTime < self.timeout:
             response = controlBoard.recv()
             if response:
                 if response == Response.FAIL:
                     raise CommandFailError(f'Command {command.name} for id {command.id} failed')
+                logger.debug(f'{command.name} : Response received of {response} ')
                 return
             logger.debug(f'No response yet. Wait for {self.interval} seconds')
-            thread.sleep(self.interval)
-
+            time.sleep(self.interval)
+            elapsedTime += self.interval
         raise ResponseTimeOutError(f'Command {command.name} for id {command.id} timed out.')
 
     def writePackets(self, controlBoard, id: np.ushort, packets: List[Packet]) -> None:

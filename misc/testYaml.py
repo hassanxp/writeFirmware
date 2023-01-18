@@ -12,3 +12,5 @@ with open("document.yaml", 'w') as f:
 with open("config.yaml", 'r') as f:
     data = yaml.safe_load(f)
     print(data)
+    print(type(data))
+    print(type(data[0xa0]))

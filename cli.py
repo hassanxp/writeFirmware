@@ -2,7 +2,12 @@ import argparse
 import logging
 
 
-class CommandLineInterface:
+class UserInterface:
+    def getArgs():
+        pass
+
+
+class CommandLineInterface(UserInterface):
 
     def getArgs():
         parser = argparse.ArgumentParser(prog='Coordinator',
